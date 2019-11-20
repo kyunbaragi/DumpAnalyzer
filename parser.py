@@ -64,7 +64,7 @@ class PatternParser(Parser):
         # Iterate dumpstate, line by line.
         hit, result = 0, ''
         for index, line in enumerate(dumpstate, 1):
-            if regex.match(line):
+            if regex.search(line):
                 hit += 1
                 if self.__args.has(Args.OPTION_LINE):
                     result += '{}: {}'.format(index, line)
