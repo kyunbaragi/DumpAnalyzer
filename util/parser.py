@@ -24,8 +24,11 @@ class Args:
 
 
 class Parser(metaclass=ABCMeta):
-    def __init__(self, tag):
+    def __init__(self, tag, pattern):
+        if pattern is False:
+            raise Exception('Invalid pattern!, Pattern can\'t be empty string.')
         self.__TAG = tag
+        self._pattern = pattern
 
     @abstractmethod
     def parse(self, dumpstate):
@@ -41,13 +44,10 @@ class PatternParser(Parser):
             | Args.OPTION_MATCH | Args.OPTION_IGNORE
 
     def __init__(self, tag, pattern, options=Args.OPTION_NONE):
-        if pattern is False:
-            raise Exception('Invalid pattern!, Pattern can\'t be empty string.')
+        super().__init__(tag, pattern)
+
         if Args.are_settable_options(PatternParser._SETTABLE_OPTIONS, options) is False:
             raise Exception('Invalid options!, Options not supported by PatternParser.')
-
-        super().__init__(tag)
-        self.__pattern = pattern
         self.__args = Args(options)
 
     def parse(self, dumpstate):
@@ -59,13 +59,13 @@ class PatternParser(Parser):
             # TODO: Set proper flag
             pass
 
-        regex = re.compile(self.__pattern, flags)
+        regex = re.compile(self._pattern, flags)
 
         # Iterate dumpstate, line by line.
-        hit, result = 0, ''
+        hit_count, result = 0, ''
         for index, line in enumerate(dumpstate, 1):
             if regex.search(line):
-                hit += 1
+                hit_count += 1
                 if self.__args.has(Args.OPTION_LINE):
                     result += '{}: {}'.format(index, line)
                 else:
@@ -73,8 +73,8 @@ class PatternParser(Parser):
 
         # Set result by priority.
         if self.__args.has(Args.OPTION_COUNT):
-            result = 'pattern count={}\n'.format(hit)
-        if hit == 0:
+            result = 'pattern count={}\n'.format(hit_count)
+        if hit_count == 0:
             result = 'Can\'t find Pattern.\n'
 
         return super().make_header() \
@@ -82,13 +82,43 @@ class PatternParser(Parser):
 
 
 class BlockParser(Parser):
-    def __init__(self, tag, pattern, options=None):
-        super().__init__(tag)
-        self.__pattern = pattern
+    _SETTABLE_OPTIONS = Args.OPTION_LINE | Args.OPTION_MATCH | Args.OPTION_IGNORE
+
+    def __init__(self, tag, pattern, length, options=None):
+        super().__init__(tag, pattern)
+
+        if Args.are_settable_options(BlockParser._SETTABLE_OPTIONS, options) is False:
+            raise Exception('Invalid options!, Options not supported by PatternParser.')
         self.__args = Args(options)
+        self.__length = length
 
     def parse(self, dumpstate):
-        result = ''
-        for line in dumpstate:
+        # Init regex flags.
+        flags = 0
+        if self.__args.has(Args.OPTION_IGNORE):
+            flags |= re.IGNORECASE
+        if self.__args.has(Args.OPTION_MATCH):
+            # TODO: Set proper flag
             pass
-        return result
+
+        regex = re.compile(self._pattern, flags)
+
+        # Find Block.
+        begin, end = -1, -1
+        for index, line in enumerate(dumpstate, 1):
+            if regex.search(line):
+                begin, end = index, index + self.__length
+                break
+
+        result = ''
+        if begin < end:
+            for index, line in enumerate(dumpstate[begin:end], begin):
+                if self.__args.has(Args.OPTION_LINE):
+                    result += '{}: {}'.format(index, line)
+                else:
+                    result += line
+        else:
+            result = 'Can\'t find Block.\n'
+
+        return super().make_header() \
+               + result
