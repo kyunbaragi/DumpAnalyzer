@@ -1,124 +1,72 @@
-from abc import *
 import re
 
 
-class Args:
-    OPTION_NONE = 0
-    OPTION_LINE = 1 << 1
-    OPTION_COUNT = 1 << 2
-    OPTION_MATCH = 1 << 3
-    OPTION_IGNORE = 1 << 4
+class AvocadoSoup:
+    def __init__(self, path, encoding='utf8'):
+        self.path = path
+        self.encoding = encoding
 
-    def __init__(self, args):
-        self.__args = args
-
-    @staticmethod
-    def are_settable_options(settable_options, options):
-        return (~settable_options & options) == 0
-
-    def has(self, option):
-        return (self.__args & option) != 0
-
-    def add(self, option):
-        self.__args |= option
-
-
-class Parser(metaclass=ABCMeta):
-    def __init__(self, tag, pattern):
-        if pattern is False:
-            raise Exception('Invalid pattern!, Pattern can\'t be empty string.')
-        self.__TAG = tag
-        self._pattern = pattern
-
-    @abstractmethod
-    def parse(self, dumpstate):
+    def scoop(self, begin_pattern, end_pattern, flags=0):
         pass
 
-    def make_header(self):
-        return '--------------- {} ---------------\n' \
-            .format(self.__TAG)
 
+class Avocado:
+    def __init__(self, strings, flags=0):
+        if not isinstance(strings, list):
+            raise TypeError('A strings must be a list of str')
+        self.strings = strings
+        self.flags = flags
+        self.cache = dict()
 
-class PatternParser(Parser):
-    _SETTABLE_OPTIONS = Args.OPTION_LINE | Args.OPTION_COUNT \
-            | Args.OPTION_MATCH | Args.OPTION_IGNORE
+    def _search(self, pattern):
+        for index, string in enumerate(self.strings):
+            if re.search(pattern, string, self.flags):
+                # Cache the searched results.
+                self.cache[pattern] = (string, index)
+                return self.cache[pattern]
+        return None, -1
 
-    def __init__(self, tag, pattern, options=Args.OPTION_NONE):
-        super().__init__(tag, pattern)
+    def scoop(self, begin_pattern, end_pattern):
+        # Return easy case first.
+        if not self.contains(begin_pattern):
+            return None
+        if not self.contains(end_pattern):
+            return None
 
-        if Args.are_settable_options(PatternParser._SETTABLE_OPTIONS, options) is False:
-            raise Exception('Invalid options!, Options not supported by PatternParser.')
-        self.__args = Args(options)
-
-    def parse(self, dumpstate):
-        # Init regex flags.
-        flags = 0
-        if self.__args.has(Args.OPTION_IGNORE):
-            flags |= re.IGNORECASE
-        if self.__args.has(Args.OPTION_MATCH):
-            # TODO: Set proper flag
-            pass
-
-        regex = re.compile(self._pattern, flags)
-
-        # Iterate dumpstate, line by line.
-        hit_count, result = 0, ''
-        for index, line in enumerate(dumpstate, 1):
-            if regex.search(line):
-                hit_count += 1
-                if self.__args.has(Args.OPTION_LINE):
-                    result += '{}: {}'.format(index, line)
-                else:
-                    result += line
-
-        # Set result by priority.
-        if self.__args.has(Args.OPTION_COUNT):
-            result = 'pattern count={}\n'.format(hit_count)
-        if hit_count == 0:
-            result = 'Can\'t find Pattern.\n'
-
-        return super().make_header() \
-            + result
-
-
-class BlockParser(Parser):
-    _SETTABLE_OPTIONS = Args.OPTION_LINE | Args.OPTION_MATCH | Args.OPTION_IGNORE
-
-    def __init__(self, tag, pattern, length, options=None):
-        super().__init__(tag, pattern)
-
-        if Args.are_settable_options(BlockParser._SETTABLE_OPTIONS, options) is False:
-            raise Exception('Invalid options!, Options not supported by PatternParser.')
-        self.__args = Args(options)
-        self.__length = length
-
-    def parse(self, dumpstate):
-        # Init regex flags.
-        flags = 0
-        if self.__args.has(Args.OPTION_IGNORE):
-            flags |= re.IGNORECASE
-        if self.__args.has(Args.OPTION_MATCH):
-            # TODO: Set proper flag
-            pass
-
-        regex = re.compile(self._pattern, flags)
-
-        # Find Block.
-        begin, end = -1, -1
-        for index, line in enumerate(dumpstate, 1):
-            if regex.search(line):
-                begin, end = index, index + self.__length
-                break
-
-        result = ''
-        if begin < end:
-            for index, line in enumerate(dumpstate[begin:end], begin):
-                if self.__args.has(Args.OPTION_LINE):
-                    result += '{}: {}'.format(index, line)
-                else:
-                    result += line
+        begin_idx = self.cache.get(begin_pattern)
+        end_idx = self.cache.get(end_pattern)
+        if begin_idx <= end_idx:
+            return Avocado(self.strings[begin_idx:end_idx + 1], self.flags)
         else:
-            result = 'Can\'t find Block.\n'
+            return Avocado(self.strings[begin_idx:], self.flags).scoop(begin_pattern, end_pattern)
 
-        return super().make_header() \
-               + result
+    def search(self, pattern):
+        if self.cache.get(pattern):
+            return self.cache.get(pattern)[0]
+        return self._search(pattern)[0]
+
+    def search_all(self, pattern):
+        matches = []
+        for string in self.strings:
+            if re.search(pattern, string, self.flags):
+                matches.append(string)
+        return matches
+
+    def contains(self, pattern):
+        if self.cache.get(pattern):
+            return True
+        if self._search(pattern)[0]:
+            return True
+        return False
+
+    def count(self, pattern):
+        return len(self.search_all(pattern))
+
+    def text(self):
+        return ''.join(self.strings)
+
+    def size(self):
+        return len(self.strings)
+
+    def is_empty(self):
+        return self.size() == 0
