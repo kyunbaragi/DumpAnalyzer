@@ -1,42 +1,39 @@
 import os
-import fnmatch
-from dumpanalyzer import DumpAnalyzer
-from parser import *
+from analyzer.vold import VoldAnalyzer
 
-TARGET_DIR_PATH = '/Users/yunkyun/PycharmProjects/TestDirectory/'
-EXTENSION_FILTER = ['*.log', '*.txt']
-
-
-def scan_directory(absolute_path, select_filter=None):
-    if select_filter is None:
-        return os.listdir(absolute_path)
-
-    paths = []
-    for ext in select_filter:
-        paths += fnmatch.filter(os.listdir(absolute_path), ext)
-    return paths
+DIR_DOWNLOAD = '/Users/yunkyun/PycharmProjects/DumpAnalyzer/Download'
+SCENARIO_STORAGE = ['CASE_00', 'CASE_01', 'CASE_02', 'CASE_03', 'CASE_04']
+SCENARIO_USB = ['CASE_05', 'CASE_06', 'CASE_07', 'CASE_08', 'CASE_09']
 
 
-def select_dumpstate():
-    print('Which file do you want to analyze?')
-    paths = scan_directory(TARGET_DIR_PATH, EXTENSION_FILTER)
-    for i, path in enumerate(paths, 1):
-        print('{}: {}'.format(i, path))
-
-    select = int(input())
-    if select <= 0 or select > len(paths):
-        raise Exception('Invalid index, You should answer proper index in list!')
-
-    return TARGET_DIR_PATH + paths[select - 1]  # Return absolute path
+class Issue:
+    def __init__(self):
+        pass
 
 
-# This is the main function in python.
+def Run_TestCase(analyzer, issue_id):
+    print(f'----------------- Start {issue_id} ---------------')
+    issue = Issue()
+    issue.id = issue_id
+    issue.download_dir = os.path.join(DIR_DOWNLOAD, issue_id)
+
+    actions = analyzer.receive(issue)
+    for action in actions:
+        print(action)
+    print(f'----------------- End {issue_id} -----------------')
+
+
+def Run_Storage_Scenario(analyzer):
+    for issue_id in SCENARIO_STORAGE:
+        Run_TestCase(analyzer, issue_id)
+
+
+def Run_Usb_Scenario(analyzer):
+    for issue_id in SCENARIO_USB:
+        Run_TestCase(analyzer, issue_id)
+
+
 if __name__ == '__main__':
-    dumpstate_path = select_dumpstate()
-
-    # TODO: How to make a module?
-    unit = DumpAnalyzer('Check SD card status')
-    unit.add_parser(PatternParser('Device Mapper', 'dm-')) \
-        .add_parser(PatternParser('MOUNT POINT DUMP', '/dev/block',
-                                  Args.OPTION_LINE | Args.OPTION_IGNORE | Args.OPTION_COUNT))
-    unit.analyze(dumpstate_path)
+    analyzer = VoldAnalyzer
+    Run_TestCase(analyzer, 'CASE_00')
+    Run_TestCase(analyzer, 'CASE_01')
