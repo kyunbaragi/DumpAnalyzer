@@ -1,26 +1,54 @@
 import os
+import re
 import zipfile
 
 
-def unzip(directory):
-    pass
+def extract(path):
+    name, ext = os.path.splitext(path)
+    extract_dir = name
+    extension = ext[1:].strip().lower()
+    if extension == 'zip':
+        if zipfile.is_zipfile(path):
+            if not os.path.exists(extract_dir):
+                os.mkdir(extract_dir)
+            with zipfile.ZipFile(path, 'r') as f:
+                f.extractall(extract_dir)
+            return True
+    elif extension == '7z':
+        return False
+    elif extension == 'gz':
+        return False
+    return False
 
 
-def unzip_all(directory: str):
-    filenames = os.listdir(directory)
-    for filename in filenames:
-        file_path = os.path.join(directory, filename)
+def extract_all(directory):
+    for root, dirs, files in os.walk(directory):
+        for f in files:
+            if extract(os.path.join(root, f)):
+                name, ext = os.path.splitext(f)
+                extract_dir = os.path.join(root, name)
+                extract_all(extract_dir)
 
-        # Extract compressed files
-        if filename.endswith('.zip'):
-            os.mkdir(file_path)
-            with zipfile.ZipFile(file_path, 'r') as zip_f:
-                zip_f.extractall(file_path)
-        elif filename.endswith('.7z'):
-            pass
-        elif filename.endswith('.gz'):
-            pass
 
-        # DFS with recursive
-        if os.path.isdir(file_path):
-            unzip_all(file_path)
+def match(directory, patterns, flags=0):
+    if isinstance(patterns, str):
+        patterns = [patterns]
+    matches = []
+    for root, dirs, files in os.walk(directory):
+        for f in files:
+            for pattern in patterns:
+                if re.match(pattern, f, flags):
+                    matches.append(os.path.join(root, f))
+    return matches
+
+
+def search(directory, patterns, flags=0):
+    if isinstance(patterns, str):
+        patterns = [patterns]
+    matches = []
+    for root, dirs, files in os.walk(directory):
+        for f in files:
+            for pattern in patterns:
+                if re.search(pattern, f, flags):
+                    matches.append(os.path.join(root, f))
+    return matches
