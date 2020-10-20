@@ -30,25 +30,27 @@ def extract_all(directory):
                 extract_all(extract_dir)
 
 
-def match(directory, patterns, flags=0):
+def match(directory, patterns, reverse=False, topdown=True, flags=0):
     if isinstance(patterns, str):
         patterns = [patterns]
     matches = []
-    for root, dirs, files in os.walk(directory):
+    for root, dirs, files in os.walk(directory, topdown=topdown):
+        files.sort(reverse=reverse)
         for f in files:
-            for pattern in patterns:
-                if re.match(pattern, f, flags):
+            for p in patterns:
+                if re.match(p, f, flags):
                     matches.append(os.path.join(root, f))
     return matches
 
 
-def search(directory, patterns, flags=0):
+def search(directory, patterns, reverse=False, topdown=True, flags=0):
     if isinstance(patterns, str):
         patterns = [patterns]
     matches = []
-    for root, dirs, files in os.walk(directory):
+    for root, dirs, files in os.walk(directory, topdown=topdown):
+        files.sort(reverse=reverse)
         for f in files:
-            for pattern in patterns:
-                if re.search(pattern, f, flags):
+            for p in patterns:
+                if re.search(p, f, flags):
                     matches.append(os.path.join(root, f))
     return matches

@@ -27,7 +27,6 @@ class AvocadoSoup:
                     else:
                         # Detect empty line and quit.
                         if re.match(r'\r\n|\r|\n', line, self.flags):
-                            sources.pop()
                             end = True
                             break
 
@@ -44,6 +43,7 @@ class Avocado:
         self.strings = strings
         self.flags = flags
         self.cache = dict()
+        self.rcache = dict()
 
     def _search(self, pattern):
         for index, string in enumerate(self.strings):
@@ -58,35 +58,59 @@ class Avocado:
                     return self.cache[pattern]
         return None, -1
 
-    def scoop(self, begin_pattern, end_pattern=None):
+    def _rsearch(self, pattern):
+        for index, string in enumerate(reversed(self.strings)):
+            if re.search(pattern, string, self.flags):
+                self.rcache[pattern] = (string, self.size() - index - 1)
+                return self.rcache[pattern]
+        return None, -1
+
+    def _scoop(self, bpattern, epattern, matches):
         # Return easy case first.
-        if not self.contains(begin_pattern):
+        if not self.contains(bpattern):
             return None
-        if not self.contains(end_pattern):
+        if not self.contains(epattern):
             return None
 
-        begin_idx = self.cache.get(begin_pattern)[1]
-        end_idx = self.cache.get(end_pattern)[1]
+        bindex = self.cache.get(bpattern)[1]
+        eindex = self.cache.get(epattern)[1]
 
-        if begin_idx <= end_idx:
-            if end_pattern:
-                return Avocado(self.strings[begin_idx:end_idx + 1], self.flags)
-            else:
-                return Avocado(self.strings[begin_idx:end_idx], self.flags)
+        if bindex <= eindex:
+            matches.append(Avocado(self.strings[bindex:eindex + 1], self.flags))
+            remains = Avocado(self.strings[eindex + 1:], self.flags)
         else:
-            return Avocado(self.strings[begin_idx:], self.flags).scoop(begin_pattern, end_pattern)
+            remains = Avocado(self.strings[bindex:], self.flags)
+        return remains._scoop(bpattern, epattern, matches)
+
+    def scoop(self, begin_pattern, end_pattern=None):
+        matches = []
+        self._scoop(begin_pattern, end_pattern, matches)
+        if matches:
+            return matches
+        else:
+            return None
 
     def search(self, pattern):
         if self.cache.get(pattern):
             return self.cache.get(pattern)[0]
         return self._search(pattern)[0]
 
+    def rsearch(self, pattern):
+        if self.rcache.get(pattern):
+            return self.rcache.get(pattern)[0]
+        return self._rsearch(pattern)[0]
+
     def index(self, pattern):
         if self.cache.get(pattern):
             return self.cache.get(pattern)[1]
         return self._search(pattern)[1]
 
-    def search_all(self, pattern):
+    def rindex(self, pattern):
+        if self.rcache.get(pattern):
+            return self.rcache.get(pattern)[1]
+        return self._rsearch(pattern)[1]
+
+    def searchall(self, pattern):
         matches = []
         for string in self.strings:
             if re.search(pattern, string, self.flags):
@@ -101,7 +125,7 @@ class Avocado:
         return False
 
     def count(self, pattern):
-        return len(self.search_all(pattern))
+        return len(self.searchall(pattern))
 
     def size(self):
         return len(self.strings)
