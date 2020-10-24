@@ -3,6 +3,12 @@ import re
 import zipfile
 
 
+class DumpRegex:
+    DEFAULT = [r'dumpState_*']
+    ACT = [r'act_dumpstate_*']
+    FULL = [r'prev_dump.*']
+
+
 def extract(path):
     name, ext = os.path.splitext(path)
     extract_dir = name
@@ -54,3 +60,7 @@ def search(directory, patterns, reverse=False, topdown=True, flags=0):
                 if re.search(p, f, flags):
                     matches.append(os.path.join(root, f))
     return matches
+
+
+def calbytes(string, encoding='utf-8'):
+    return len(string.encode(encoding))

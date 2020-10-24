@@ -8,20 +8,20 @@ class AvocadoSoup:
         self.encoding = encoding
         self.flags = flags
 
-    def scoop(self, begin_pattern, end_pattern=None):
+    def scoop(self, bpattern, epattern=None):
         begin, end = False, False
         sources = []
         with open(self.path, encoding=self.encoding) as f:
             # Same with f.xreadlines().
             for line in f:
                 if not begin:
-                    if re.search(begin_pattern, line, self.flags):
+                    if re.search(bpattern, line, self.flags):
                         sources.append(line.strip())
                         begin = True
                 else:
                     sources.append(line.strip())
-                    if end_pattern:
-                        if re.search(end_pattern, line, self.flags):
+                    if epattern:
+                        if re.search(epattern, line, self.flags):
                             end = True
                             break
                     else:
@@ -54,7 +54,7 @@ class Avocado:
                     return self.cache[pattern]
             else:
                 if string.strip() == '':
-                    self.cache[pattern] = ('Empty line', index)
+                    self.cache[pattern] = ('empty line', index)
                     return self.cache[pattern]
         return None, -1
 
@@ -82,9 +82,9 @@ class Avocado:
             remains = Avocado(self.strings[bindex:], self.flags)
         return remains._scoop(bpattern, epattern, matches)
 
-    def scoop(self, begin_pattern, end_pattern=None):
+    def scoop(self, bpattern, epattern=None):
         matches = []
-        self._scoop(begin_pattern, end_pattern, matches)
+        self._scoop(bpattern, epattern, matches)
         if matches:
             return matches
         else:
