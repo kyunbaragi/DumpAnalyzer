@@ -1,5 +1,4 @@
 import re
-import copy
 
 
 class AvocadoSoup:
@@ -8,29 +7,28 @@ class AvocadoSoup:
         self.encoding = encoding
         self.flags = flags
 
-    def scoop(self, bpattern, epattern=None):
-        begin, end = False, False
+    def scoop(self, fpattern, lpattern=None):
+        first, last = False, False
         sources = []
         with open(self.path, encoding=self.encoding) as f:
             # Same with f.xreadlines().
             for line in f:
-                if not begin:
-                    if re.search(bpattern, line, self.flags):
+                if not first:
+                    if re.search(fpattern, line, self.flags):
                         sources.append(line.strip())
-                        begin = True
+                        first = True
                 else:
                     sources.append(line.strip())
-                    if epattern:
-                        if re.search(epattern, line, self.flags):
-                            end = True
+                    if lpattern:
+                        if re.search(lpattern, line, self.flags):
+                            last = True
                             break
                     else:
                         # Detect empty line and quit.
                         if re.match(r'\r\n|\r|\n', line, self.flags):
-                            end = True
+                            last = True
                             break
-
-        if begin and end:
+        if first and last:
             return Avocado(sources, self.flags)
         else:
             return None
@@ -46,92 +44,88 @@ class Avocado:
         self.rcache = dict()
 
     def _search(self, pattern):
+        if pattern in self.cache:
+            return self.cache.get(pattern)
+        match = (None, -1)
         for index, string in enumerate(self.strings):
             if pattern:
                 if re.search(pattern, string, self.flags):
-                    # Cache the searched results.
-                    self.cache[pattern] = (string, index)
-                    return self.cache[pattern]
+                    match = (string, index)
+                    break
             else:
-                if string.strip() == '':
-                    self.cache[pattern] = ('empty line', index)
-                    return self.cache[pattern]
-        return None, -1
+                if not string:
+                    match = (string, index)
+                    break
+        self.cache[pattern] = match
+        return match
 
     def _rsearch(self, pattern):
+        if pattern in self.rcache:
+            return self.rcache.get(pattern)
+        match = (None, -1)
         for index, string in enumerate(reversed(self.strings)):
-            if re.search(pattern, string, self.flags):
-                self.rcache[pattern] = (string, self.size() - index - 1)
-                return self.rcache[pattern]
-        return None, -1
+            if pattern:
+                if re.search(pattern, string, self.flags):
+                    match = (string, self.size() - index - 1)
+                    break
+            else:
+                if not string:
+                    match = (string, self.size() - index - 1)
+                    break
+        self.rcache[pattern] = match
+        return match
 
-    def _scoop(self, bpattern, epattern, matches):
-        # Return easy case first.
-        if not self.contains(bpattern):
-            return None
-        if not self.contains(epattern):
-            return None
-
-        bindex = self.cache.get(bpattern)[1]
-        eindex = self.cache.get(epattern)[1]
-
-        if bindex <= eindex:
-            matches.append(Avocado(self.strings[bindex:eindex + 1], self.flags))
-            remains = Avocado(self.strings[eindex + 1:], self.flags)
-        else:
-            remains = Avocado(self.strings[bindex:], self.flags)
-        return remains._scoop(bpattern, epattern, matches)
-
-    def scoop(self, bpattern, epattern=None):
-        matches = []
-        self._scoop(bpattern, epattern, matches)
-        if matches:
-            return matches
-        else:
-            return None
-
-    def search(self, pattern):
-        if self.cache.get(pattern):
-            return self.cache.get(pattern)[0]
-        return self._search(pattern)[0]
-
-    def rsearch(self, pattern):
-        if self.rcache.get(pattern):
-            return self.rcache.get(pattern)[0]
-        return self._rsearch(pattern)[0]
-
-    def index(self, pattern):
-        if self.cache.get(pattern):
-            return self.cache.get(pattern)[1]
-        return self._search(pattern)[1]
-
-    def rindex(self, pattern):
-        if self.rcache.get(pattern):
-            return self.rcache.get(pattern)[1]
-        return self._rsearch(pattern)[1]
-
-    def searchall(self, pattern):
+    def _searchall(self, pattern):
         matches = []
         for string in self.strings:
             if re.search(pattern, string, self.flags):
                 matches.append(string)
         return matches
 
+    def _scoop(self, fpattern, lpattern, matches):
+        if not self.contains(fpattern):
+            return
+        if not self.contains(lpattern):
+            return
+        findex = self.cache.get(fpattern)[1]
+        lindex = self.cache.get(lpattern)[1]
+        if findex <= lindex:
+            matches.append(Avocado(self.strings[findex:lindex + 1], self.flags))
+            remains = Avocado(self.strings[lindex + 1:], self.flags)
+        else:
+            remains = Avocado(self.strings[findex:], self.flags)
+        return remains._scoop(fpattern, lpattern, matches)
+
+    def scoop(self, fpattern, lpattern=None):
+        matches = []
+        self._scoop(fpattern, lpattern, matches)
+        return matches
+
+    def search(self, pattern):
+        return self._search(pattern)[0]
+
+    def index(self, pattern):
+        return self._search(pattern)[1]
+
+    def rsearch(self, pattern):
+        return self._rsearch(pattern)[0]
+
+    def rindex(self, pattern):
+        return self._rsearch(pattern)[1]
+
+    def searchall(self, pattern):
+        return self._searchall(pattern)
+
     def contains(self, pattern):
-        if self.cache.get(pattern):
-            return True
         if self._search(pattern)[0]:
             return True
         return False
 
     def count(self, pattern):
-        return len(self.searchall(pattern))
+        return len(self._searchall(pattern))
 
     def size(self):
         return len(self.strings)
 
-    def raw(self):
-        return copy.deepcopy(self.strings)
-
-    def tostring(self, delimiter='\n'):
-        return delimiter.join(self.strings)
+    def tostring(self, separator='\n'):
+        return separator.join(self.strings)
