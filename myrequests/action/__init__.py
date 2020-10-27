@@ -1,6 +1,5 @@
 import os
 import abc
-import util
 
 
 class Action(metaclass=abc.ABCMeta):
@@ -8,9 +7,8 @@ class Action(metaclass=abc.ABCMeta):
         self.issue = issue
 
 
-class Comment(Action):
+class PostComment(Action):
     MAX_BYTES = 4000
-    SIGNATURE = 'Commented by Papago.'
 
     def __init__(self, issue, text):
         super().__init__(issue)
@@ -19,23 +17,11 @@ class Comment(Action):
     class Builder:
         def __init__(self, issue):
             self.issue = issue
-            self.title = ''
-            self.description = ''
-            self.cases = []
-            self.source = ''
-            self.logs = ''
-
-        def _append(self, source, appended, maxbytes=0):
-            if maxbytes:
-                if util.calbytes(source) >= maxbytes:
-                    return source
-                if util.calbytes(source + appended) >= maxbytes:
-                    # TODO: Truncate the appended string to fit maxbyte.
-                    return source + appended
-                else:
-                    return source + appended
-            else:
-                return source + appended
+            self.title = None
+            self.description = None
+            self.cases = None
+            self.source = None
+            self.logs = None
 
         def set_title(self, title):
             self.title = title.strip()
@@ -58,38 +44,49 @@ class Comment(Action):
             return self
 
         def build(self):
-            text = ''
-            usable_bytes = Comment.MAX_BYTES - util.calbytes(Comment.SIGNATURE) - 1
+            sources = []
             if self.title:
-                text = self._append(text, f'[Title] {self.title}\n', usable_bytes)
+                sources.append(f'[Title] {self.title}')
             if self.description:
-                text = self._append(text, f'[Description] {self.description}\n', usable_bytes)
+                sources.append(f'[Description] {self.description}')
             if self.cases:
-                text = self._append(text, f'[Cases] {self.cases}\n', usable_bytes)
+                sources.append(f'[Cases] {self.cases}')
             if self.source:
-                text = self._append(text, f'[Source] {self.source}\n', usable_bytes)
+                sources.append(f'[Source] {self.source}')
             if self.logs:
-                text = self._append(text, f'[Logs]\n', usable_bytes)
-                text = self._append(text, f'{self.logs}\n', usable_bytes)
-            text = self._append(text, '\n')
-            text = self._append(text, Comment.SIGNATURE)
-            return Comment(self.issue, text)
+                sources.append(f'--------------->>>>>>>>>>---------------')
+                sources.append(f'{self.logs}')
+
+            # TODO: Truncate the appended string to fit maxbyte.
+            return PostComment(self.issue, '\n'.join(sources))
 
     def __str__(self):
-        return f'<Comment, {self.issue.id}>'
+        return f'<PostComment, {self.issue.id}>'
 
 
-class Assign(Action):
+class AssignMainOwner(Action):
+    def __init__(self, issue, user_id: str, comment: str):
+        super().__init__(issue)
+        self.main_owner = {user_id}
+        self.comment = comment
+
+    def __str__(self):
+        return f'<AssignMainOwner, {self.issue.id} / {self.main_owner}>'
+
+
+class AssignSubOwner(Action):
+    def __init__(self, issue, user_ids: list, comment: str):
+        super().__init__(issue)
+        self.sub_owners = set(user_ids)
+        self.comment = comment
+
+    def __str__(self):
+        return f'<AssignSubOwner, {self.issue.id} / {self.sub_owners}>'
+
+
+class ResolveIssue(Action):
     def __init__(self, issue):
         super().__init__(issue)
 
     def __str__(self):
-        return f'<Assign, {self.issue.id}>'
-
-
-class Resolve(Action):
-    def __init__(self, issue):
-        super().__init__(issue)
-
-    def __str__(self):
-        return f'<Resolve, {self.issue.id}>'
+        return f'<ResolveIssue, {self.issue.id}>'
