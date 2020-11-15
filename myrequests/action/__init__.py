@@ -17,11 +17,11 @@ class PostComment(Action):
     class Builder:
         def __init__(self, issue):
             self.issue = issue
-            self.title = None
-            self.description = None
-            self.cases = None
-            self.source = None
-            self.logs = None
+            self.title = ''
+            self.description = ''
+            self.cases = []
+            self.source = ''
+            self.logs = ''
 
         def set_title(self, title):
             self.title = title.strip()
@@ -54,39 +54,39 @@ class PostComment(Action):
             if self.source:
                 sources.append(f'[Source] {self.source}')
             if self.logs:
-                sources.append(f'--------------->>>>>>>>>>---------------')
+                sources.append('')
                 sources.append(f'{self.logs}')
 
             # TODO: Truncate the appended string to fit maxbyte.
             return PostComment(self.issue, '\n'.join(sources))
 
-    def __str__(self):
-        return f'<PostComment, {self.issue.id}>'
+    def __repr__(self):
+        return f'PostComment[issue={self.issue}]'
 
 
 class AssignMainOwner(Action):
-    def __init__(self, issue, user_id: str, comment: str):
+    def __init__(self, issue, user_id: str, comment: str = ''):
         super().__init__(issue)
         self.main_owner = {user_id}
         self.comment = comment
 
-    def __str__(self):
-        return f'<AssignMainOwner, {self.issue.id} / {self.main_owner}>'
+    def __repr__(self):
+        return f'AssignMainOwner[issue={self.issue}, main_owner={self.main_owner}]'
 
 
-class AssignSubOwner(Action):
-    def __init__(self, issue, user_ids: list, comment: str):
+class AssignSubOwners(Action):
+    def __init__(self, issue, user_ids: list, comment: str = ''):
         super().__init__(issue)
         self.sub_owners = set(user_ids)
         self.comment = comment
 
-    def __str__(self):
-        return f'<AssignSubOwner, {self.issue.id} / {self.sub_owners}>'
+    def __repr__(self):
+        return f'AssignSubOwners[issue={self.issue}, sub_owners={self.sub_owners}]'
 
 
 class ResolveIssue(Action):
     def __init__(self, issue):
         super().__init__(issue)
 
-    def __str__(self):
-        return f'<ResolveIssue, {self.issue.id}>'
+    def __repr__(self):
+        return f'ResolveIssue[issue={self.issue}]'
