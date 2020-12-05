@@ -1,5 +1,6 @@
 import os
 import abc
+from typing import Iterable
 
 
 class Action(metaclass=abc.ABCMeta):
@@ -23,23 +24,23 @@ class PostComment(Action):
             self.source = ''
             self.logs = ''
 
-        def set_title(self, title):
+        def set_title(self, title: str):
             self.title = title.strip()
             return self
 
-        def set_description(self, description):
+        def set_description(self, description: str):
             self.description = description.strip()
             return self
 
-        def set_cases(self, cases):
+        def set_cases(self, cases: Iterable[str]):
             self.cases = cases
             return self
 
-        def set_source(self, source):
+        def set_source(self, source: str):
             self.source = os.path.basename(source.strip())
             return self
 
-        def set_logs(self, logs):
+        def set_logs(self, logs: str):
             self.logs = logs.strip()
             return self
 
@@ -66,6 +67,9 @@ class PostComment(Action):
 
 class AssignMainOwner(Action):
     def __init__(self, issue, user_id: str, comment: str = ''):
+        if not isinstance(user_id, str):
+            raise TypeError('user_id must be a str')
+
         super().__init__(issue)
         self.main_owner = {user_id}
         self.comment = comment
@@ -75,7 +79,10 @@ class AssignMainOwner(Action):
 
 
 class AssignSubOwners(Action):
-    def __init__(self, issue, user_ids: list, comment: str = ''):
+    def __init__(self, issue, user_ids: Iterable[str], comment: str = ''):
+        if isinstance(user_ids, str):
+            raise TypeError('user_ids must be an iterable of str, not a string')
+
         super().__init__(issue)
         self.sub_owners = set(user_ids)
         self.comment = comment
