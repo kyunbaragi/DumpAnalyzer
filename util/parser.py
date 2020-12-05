@@ -1,4 +1,5 @@
 import re
+import copy
 
 
 class AvocadoSoup:
@@ -38,7 +39,8 @@ class AvocadoSoup:
 class Avocado:
     def __init__(self, strings, flags=0):
         if not isinstance(strings, list):
-            raise TypeError('A strings must be a list of str')
+            raise TypeError('strings must be a list of str')
+
         self.strings = strings
         self.flags = flags
         self.cache = dict()
@@ -80,15 +82,17 @@ class Avocado:
         self.rcache[pattern] = match
         return match
 
-    def _searchall(self, pattern):
+    def _search_all(self, pattern):
         matches = []
         for string in self.strings:
             if re.search(pattern, string, self.flags):
                 matches.append(string)
-
         return matches
 
-    def _scoop(self, fpattern, lpattern, matches):
+    def _scoop(self, fpattern, lpattern, matches, max_count=0):
+        if max_count and len(matches) >= max_count:
+            return
+
         if not self.contains(fpattern):
             return
         if not self.contains(lpattern):
@@ -104,12 +108,17 @@ class Avocado:
             remains = Avocado(self.strings[findex:], self.flags)
 
         # Recursive call for remained strings.
-        return remains._scoop(fpattern, lpattern, matches)
+        return remains._scoop(fpattern, lpattern, matches, max_count)
 
     def scoop(self, fpattern, lpattern=None):
         matches = []
+        self._scoop(fpattern, lpattern, matches, 1)
+        return matches[0] if matches else None
+
+    def scoop_all(self, fpattern, lpattern=None):
+        matches = []
         self._scoop(fpattern, lpattern, matches)
-        return matches
+        return matches if matches else None
 
     def search(self, pattern):
         return self._search(pattern)[0]
@@ -123,17 +132,20 @@ class Avocado:
     def rindex(self, pattern):
         return self._rsearch(pattern)[1]
 
-    def searchall(self, pattern):
-        return self._searchall(pattern)
+    def search_all(self, pattern):
+        return self._search_all(pattern)
 
     def contains(self, pattern):
         return True if self._search(pattern)[0] else False
 
     def count(self, pattern):
-        return len(self._searchall(pattern))
+        return len(self._search_all(pattern))
 
     def size(self):
         return len(self.strings)
 
-    def tostring(self, separator='\n'):
+    def to_string(self, separator='\n'):
         return separator.join(self.strings)
+
+    def raw(self):
+        return copy.copy(self.strings)
